@@ -19,6 +19,33 @@
     -moz-osx-font-smoothing: grayscale;
   }
 
+  /* ─── PASSWORD GATE ─── */
+  #pw-gate {
+    position: fixed; inset: 0; z-index: 99999;
+    display: flex; align-items: center; justify-content: center;
+    background: #0F0F0F;
+  }
+  #pw-gate .pw-box {
+    text-align: center; color: #fff;
+  }
+  #pw-gate .pw-box h2 {
+    font-size: 18px; font-weight: 600; margin-bottom: 20px; letter-spacing: 0.5px;
+  }
+  #pw-gate .pw-box input {
+    padding: 10px 16px; font-size: 14px; border: 1px solid #333; border-radius: 8px;
+    background: #1A1A1A; color: #fff; outline: none; width: 220px; text-align: center;
+    font-family: 'Inter', sans-serif;
+  }
+  #pw-gate .pw-box input:focus { border-color: #555; }
+  #pw-gate .pw-box button {
+    display: block; margin: 14px auto 0; padding: 9px 28px; font-size: 13px;
+    font-weight: 500; border: none; border-radius: 8px; cursor: pointer;
+    background: #fff; color: #0F0F0F; font-family: 'Inter', sans-serif;
+  }
+  #pw-gate .pw-box button:hover { background: #e0e0e0; }
+  #pw-gate .pw-err { color: #ff4d4d; font-size: 12px; margin-top: 10px; min-height: 16px; }
+  #app-content { display: none; }
+
   /* ─── SLIDE CONTAINER ─── */
   .deck {
     position: relative;
@@ -564,6 +591,18 @@
 </style>
 </head>
 <body>
+
+<!-- PASSWORD GATE -->
+<div id="pw-gate">
+  <div class="pw-box">
+    <h2>PERIPHERY DIGITAL</h2>
+    <input type="password" id="pw-input" placeholder="Enter password" autofocus>
+    <button onclick="checkPw()">Enter</button>
+    <div class="pw-err" id="pw-err"></div>
+  </div>
+</div>
+
+<div id="app-content">
 
 <!-- TOP BAR -->
 <div class="topbar">
@@ -1156,6 +1195,22 @@ function calculate() {
   document.getElementById(id).addEventListener('change', calculate);
 });
 calculate();
+</script>
+
+</div><!-- /app-content -->
+
+<script>
+function checkPw(){
+  var v=document.getElementById('pw-input').value;
+  if(v==='rennie'){
+    document.getElementById('pw-gate').style.display='none';
+    document.getElementById('app-content').style.display='block';
+  } else {
+    document.getElementById('pw-err').textContent='Incorrect password';
+    document.getElementById('pw-input').value='';
+  }
+}
+document.getElementById('pw-input').addEventListener('keydown',function(e){if(e.key==='Enter')checkPw();});
 </script>
 </body>
 </html>
