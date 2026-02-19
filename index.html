@@ -1,0 +1,1161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Periphery Digital — Integration Overview</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+  *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+  html, body { height: 100%; overflow: hidden; }
+
+  body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    background: #0F0F0F;
+    color: #0F0F0F;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* ─── SLIDE CONTAINER ─── */
+  .deck {
+    position: relative;
+    width: 100vw;
+    height: 100vh;
+    overflow: hidden;
+  }
+
+  .slide {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100vw;
+    height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.45s cubic-bezier(0.16, 1, 0.3, 1), transform 0.45s cubic-bezier(0.16, 1, 0.3, 1);
+    overflow-y: auto;
+    overflow-x: hidden;
+    z-index: 0;
+  }
+  /* Slide waiting to the right (next) */
+  .slide.queue-right { transform: translateX(60px); }
+  /* Slide waiting to the left (prev) */
+  .slide.queue-left { transform: translateX(-60px); }
+  .slide.active {
+    opacity: 1;
+    pointer-events: auto;
+    transform: translateX(0);
+    z-index: 2;
+  }
+  /* Exiting to left (when navigating forward) */
+  .slide.exit-left {
+    opacity: 0;
+    transform: translateX(-60px);
+    z-index: 1;
+  }
+  /* Exiting to right (when navigating backward) */
+  .slide.exit-right {
+    opacity: 0;
+    transform: translateX(60px);
+    z-index: 1;
+  }
+
+  .slide-inner {
+    width: 100%;
+    max-width: 1120px;
+    padding: 60px 56px;
+    position: relative;
+  }
+
+  /* ─── TOP NAV BAR ─── */
+  .topbar {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    z-index: 100;
+    background: rgba(15,15,15,0.85);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border-bottom: 1px solid rgba(244,244,240,0.06);
+    padding: 0 48px;
+    height: 52px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .topbar-brand {
+    font-size: 14px;
+    font-weight: 400;
+    color: #F4F4F0;
+    letter-spacing: -0.3px;
+  }
+  .topbar-nav {
+    display: flex;
+    gap: 2px;
+    list-style: none;
+  }
+  .topbar-nav button {
+    background: none;
+    border: none;
+    font-family: inherit;
+    font-size: 11px;
+    font-weight: 400;
+    color: rgba(244,244,240,0.35);
+    padding: 8px 14px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s;
+    white-space: nowrap;
+  }
+  .topbar-nav button:hover { color: rgba(244,244,240,0.7); background: rgba(244,244,240,0.05); }
+  .topbar-nav button.active { color: #F4F4F0; background: rgba(82,41,211,0.2); }
+  .topbar-counter {
+    font-size: 11px;
+    color: rgba(244,244,240,0.3);
+    font-weight: 400;
+    font-variant-numeric: tabular-nums;
+    min-width: 50px;
+    text-align: right;
+  }
+
+  /* ─── NAV ARROWS ─── */
+  .nav-arrow {
+    position: fixed;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 50;
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    border: 1px solid rgba(244,244,240,0.1);
+    background: rgba(15,15,15,0.6);
+    backdrop-filter: blur(10px);
+    color: rgba(244,244,240,0.5);
+    font-size: 18px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+  }
+  .nav-arrow:hover { background: rgba(82,41,211,0.3); border-color: rgba(82,41,211,0.4); color: #F4F4F0; }
+  .nav-arrow.left { left: 24px; }
+  .nav-arrow.right { right: 24px; }
+  .nav-arrow:disabled { opacity: 0.15; pointer-events: none; }
+
+  /* ─── PROGRESS BAR ─── */
+  .progress-bar {
+    position: fixed;
+    bottom: 0; left: 0;
+    height: 3px;
+    background: linear-gradient(90deg, #E6A47A 0%, #C4A3D9 50%, #5229D3 100%);
+    z-index: 100;
+    transition: width 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+    border-radius: 0 2px 2px 0;
+  }
+
+  /* ─── DOT INDICATORS ─── */
+  .dots {
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 100;
+    display: flex;
+    gap: 8px;
+  }
+  .dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: rgba(244,244,240,0.15);
+    cursor: pointer;
+    transition: all 0.3s;
+  }
+  .dot:hover { background: rgba(244,244,240,0.4); }
+  .dot.active { background: #5229D3; width: 20px; border-radius: 3px; }
+
+  /* ─── SLIDE: HERO ─── */
+  .slide-hero {
+    background: #0F0F0F;
+    position: relative;
+    overflow: hidden;
+  }
+  .slide-hero::before {
+    content: '';
+    position: absolute;
+    top: -50%; left: -20%;
+    width: 70%; height: 200%;
+    background: radial-gradient(ellipse at center, rgba(82,41,211,0.5) 0%, rgba(82,41,211,0.2) 40%, transparent 70%);
+    filter: blur(60px);
+  }
+  .slide-hero .slide-inner { position: relative; z-index: 2; display: flex; flex-direction: column; justify-content: flex-end; min-height: calc(100vh - 120px); }
+  .hero-eyebrow {
+    font-size: 10px;
+    font-weight: 400;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: #9E7CB9;
+    margin-bottom: 20px;
+  }
+  .hero-title {
+    font-size: 56px;
+    font-weight: 400;
+    line-height: 1.05;
+    letter-spacing: -1.5px;
+    color: #F4F4F0;
+    margin-bottom: 20px;
+  }
+  .hero-title .arrow { color: #9E7CB9; font-weight: 300; margin: 0 6px; }
+  .hero-sub {
+    font-size: 18px;
+    color: rgba(244,244,240,0.55);
+    font-weight: 300;
+    max-width: 560px;
+    line-height: 1.6;
+  }
+  .hero-meta {
+    margin-top: 32px;
+    font-size: 12px;
+    color: rgba(244,244,240,0.25);
+    font-weight: 300;
+  }
+  .hero-hint {
+    position: absolute;
+    bottom: 40px;
+    right: 56px;
+    font-size: 11px;
+    color: rgba(244,244,240,0.2);
+    font-weight: 300;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .hero-hint .kbd {
+    display: inline-flex;
+    padding: 3px 8px;
+    border: 1px solid rgba(244,244,240,0.15);
+    border-radius: 4px;
+    font-size: 10px;
+    font-family: inherit;
+  }
+
+  /* ─── CONTENT SLIDES ─── */
+  .slide-light { background: #F4F4F0; }
+  .slide-dark { background: #0F0F0F; color: #F4F4F0; }
+  .slide-white { background: #ffffff; }
+
+  .sec-label {
+    font-size: 10px;
+    font-weight: 400;
+    color: #9E7CB9;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    margin-bottom: 12px;
+  }
+  .slide-dark .sec-label { color: #9E7CB9; }
+  .sec-heading {
+    font-size: 32px;
+    font-weight: 400;
+    letter-spacing: -0.5px;
+    line-height: 1.2;
+    margin-bottom: 10px;
+    color: #0F0F0F;
+  }
+  .slide-dark .sec-heading { color: #F4F4F0; }
+  .sec-sub {
+    font-size: 14px;
+    color: #737373;
+    max-width: 620px;
+    line-height: 1.7;
+    margin-bottom: 40px;
+    font-weight: 300;
+  }
+  .slide-dark .sec-sub { color: rgba(244,244,240,0.5); }
+
+  /* ─── BENTO GRID ─── */
+  .bento { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+  .bento-item {
+    background: rgba(0,0,0,0.03);
+    border-radius: 8px;
+    padding: 24px;
+    border: 1px solid rgba(0,0,0,0.04);
+    transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    cursor: default;
+  }
+  .bento-item:hover { transform: translateY(-2px); box-shadow: 0 8px 30px rgba(0,0,0,0.06); border-color: rgba(82,41,211,0.15); }
+  .bento-item.span-full { grid-column: 1 / -1; text-align: center; background: #0F0F0F; border-color: #0F0F0F; color: #F4F4F0; }
+  .bento-item.span-full:hover { background: #1a1a1a; transform: none; box-shadow: 0 8px 40px rgba(82,41,211,0.15); }
+  .bento-tag { font-size: 10px; font-weight: 400; letter-spacing: 1.5px; text-transform: uppercase; color: #737373; margin-bottom: 8px; }
+  .bento-item.span-full .bento-tag { color: rgba(244,244,240,0.4); }
+  .bento-val { font-size: 28px; font-weight: 400; letter-spacing: -1px; color: #5229D3; margin-bottom: 4px; }
+  .bento-item.span-full .bento-val { font-size: 44px; letter-spacing: -2px; color: #F4F4F0; }
+  .bento-detail { font-size: 12px; color: #737373; line-height: 1.5; font-weight: 300; }
+  .bento-item.span-full .bento-detail { color: rgba(244,244,240,0.4); }
+  .bento-item.accent { background: rgba(82,41,211,0.05); border-color: rgba(82,41,211,0.1); }
+  .bento-item.accent:hover { background: rgba(82,41,211,0.08); border-color: rgba(82,41,211,0.2); }
+
+  /* ─── TEAM ROWS ─── */
+  .team-card {
+    display: flex;
+    align-items: center;
+    gap: 24px;
+    padding: 20px 16px;
+    border-radius: 10px;
+    margin-bottom: 4px;
+    transition: all 0.2s;
+    cursor: default;
+  }
+  .team-card:hover { background: rgba(82,41,211,0.04); }
+  .slide-dark .team-card:hover { background: rgba(244,244,240,0.04); }
+  .team-badge {
+    width: 44px; height: 44px; border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16px; font-weight: 500; color: #F4F4F0; flex-shrink: 0;
+  }
+  .badge-a { background: #5229D3; }
+  .badge-b { background: #9E7CB9; }
+  .badge-bc { background: #E6A47A; color: #0F0F0F; }
+  .team-body { flex: 1; }
+  .team-body h4 { font-size: 15px; font-weight: 500; margin-bottom: 2px; }
+  .slide-dark .team-body h4 { color: #F4F4F0; }
+  .team-body p { font-size: 12px; color: #737373; font-weight: 300; }
+  .slide-dark .team-body p { color: rgba(244,244,240,0.45); }
+  .team-nums { display: flex; gap: 28px; text-align: right; }
+  .team-nums .num { font-size: 20px; font-weight: 400; color: #5229D3; }
+  .team-nums .lbl { font-size: 10px; font-weight: 400; color: #9E7CB9; text-transform: uppercase; letter-spacing: 1px; }
+
+  /* ─── ROLE CARDS ─── */
+  .roles-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-bottom: 16px; }
+  .role-card {
+    background: #ffffff;
+    border: 1px solid rgba(0,0,0,0.05);
+    border-radius: 8px;
+    padding: 24px;
+    transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    cursor: default;
+  }
+  .role-card:hover { transform: translateY(-2px); box-shadow: 0 8px 30px rgba(82,41,211,0.08); border-color: rgba(82,41,211,0.15); }
+  .role-dot { width: 8px; height: 8px; border-radius: 50%; margin-bottom: 12px; }
+  .role-card h4 { font-size: 15px; font-weight: 500; margin-bottom: 6px; color: #0F0F0F; }
+  .role-card p { font-size: 11px; color: #737373; line-height: 1.6; margin-bottom: 14px; font-weight: 300; }
+  .rate-row { display: flex; gap: 6px; }
+  .rate-pill { flex: 1; padding: 8px 10px; border-radius: 6px; background: #F4F4F0; }
+  .rate-pill .rate-lbl { font-size: 8px; font-weight: 400; text-transform: uppercase; letter-spacing: 1.2px; color: #9E7CB9; margin-bottom: 2px; }
+  .rate-pill .rate-val { font-size: 14px; font-weight: 500; color: #0F0F0F; }
+  .rate-pill .rate-sub { font-size: 8px; color: #737373; margin-top: 1px; font-weight: 300; }
+  .roles-summary {
+    background: rgba(0,0,0,0.03);
+    border: 1px solid rgba(0,0,0,0.04);
+    border-radius: 8px;
+    padding: 16px 24px;
+  }
+  .roles-summary .val { font-size: 16px; font-weight: 500; color: #5229D3; }
+  .roles-summary .note { font-size: 12px; color: #737373; margin-top: 4px; line-height: 1.6; font-weight: 300; }
+
+  /* ─── CONTROLS (SCENARIO) ─── */
+  .controls-row { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin-bottom: 24px; }
+  .ctrl-label { font-size: 9px; font-weight: 400; letter-spacing: 1.5px; text-transform: uppercase; color: #9E7CB9; margin-bottom: 5px; }
+  .ctrl-select {
+    width: 100%; padding: 8px 10px;
+    border: 1px solid rgba(0,0,0,0.08); border-radius: 6px;
+    font-family: 'Inter', sans-serif; font-size: 12px; font-weight: 400;
+    color: #0F0F0F; background: #ffffff; cursor: pointer;
+    transition: all 0.15s; appearance: auto;
+  }
+  .ctrl-select:hover { border-color: #9E7CB9; }
+  .ctrl-select:focus { outline: none; border-color: #5229D3; box-shadow: 0 0 0 3px rgba(82,41,211,0.08); }
+
+  /* ─── RESULT STRIP ─── */
+  .result-strip { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 20px; }
+  .result-card {
+    text-align: center; padding: 18px 12px; border-radius: 8px;
+    border: 1px solid rgba(0,0,0,0.04);
+    transition: all 0.25s; cursor: default;
+  }
+  .result-card:hover { transform: translateY(-1px); box-shadow: 0 4px 16px rgba(0,0,0,0.04); }
+  .result-card.green { background: #ecfdf5; border-color: #d1fae5; }
+  .result-card.amber { background: #fffbeb; border-color: #fef3c7; }
+  .result-card.red { background: #fef2f2; border-color: #fecaca; }
+  .result-card.blue { background: rgba(0,0,0,0.02); }
+  .result-val { font-size: 22px; font-weight: 400; letter-spacing: -0.5px; line-height: 1; margin-bottom: 4px; color: #0F0F0F; }
+  .result-label { font-size: 9px; font-weight: 400; color: #737373; text-transform: uppercase; letter-spacing: 1px; }
+  .positive { color: #059669; }
+  .negative { color: #dc2626; }
+
+  /* ─── P&L CARD ─── */
+  .pnl-card { background: #ffffff; border-radius: 8px; padding: 24px; border: 1px solid rgba(0,0,0,0.05); }
+  .pnl-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid rgba(0,0,0,0.03); }
+  .pnl-row:last-child { border-bottom: none; }
+  .pnl-row.total { border-top: 2px solid #0F0F0F; border-bottom: none; margin-top: 4px; padding-top: 12px; }
+  .pnl-label { font-size: 13px; color: #737373; font-weight: 300; }
+  .pnl-value { font-size: 13px; font-weight: 500; }
+  .pnl-row.total .pnl-label { font-size: 14px; font-weight: 400; color: #0F0F0F; }
+  .pnl-row.total .pnl-value { font-size: 18px; }
+
+  /* ─── INTEGRATION DIAGRAM ─── */
+  .integration-flow { display: grid; grid-template-columns: 1fr 36px 1fr 36px 1fr; gap: 0; align-items: stretch; margin-bottom: 20px; }
+  .int-card {
+    background: rgba(0,0,0,0.03);
+    border: 1px solid rgba(0,0,0,0.04);
+    border-radius: 8px;
+    padding: 24px;
+    transition: all 0.25s;
+    cursor: default;
+  }
+  .int-card:hover { border-color: rgba(82,41,211,0.12); transform: translateY(-1px); }
+  .int-card.result { background: #5229D3; border-color: #5229D3; color: #F4F4F0; }
+  .int-card.result:hover { background: #6340e0; transform: translateY(-2px); box-shadow: 0 8px 30px rgba(82,41,211,0.3); }
+  .int-card h5 { font-size: 10px; font-weight: 400; letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 8px; color: #9E7CB9; }
+  .int-card h3 { font-size: 14px; font-weight: 500; margin-bottom: 8px; color: #0F0F0F; }
+  .int-card.result h3 { color: #F4F4F0; }
+  .int-card.result h5 { color: rgba(244,244,240,0.5); }
+  .int-card ul { list-style: none; }
+  .int-card ul li { font-size: 11px; color: #737373; line-height: 1.8; padding-left: 12px; position: relative; font-weight: 300; }
+  .int-card.result ul li { color: rgba(244,244,240,0.65); }
+  .int-card ul li::before { content: ''; position: absolute; left: 0; top: 8px; width: 4px; height: 4px; border-radius: 50%; background: #C4A3D9; }
+  .int-card.result ul li::before { background: rgba(244,244,240,0.4); }
+  .int-join { display: flex; align-items: center; justify-content: center; font-size: 18px; color: #C4A3D9; font-weight: 300; }
+
+  /* ─── CALLOUT ─── */
+  .callout {
+    background: rgba(0,0,0,0.03);
+    border: 1px solid rgba(0,0,0,0.04);
+    border-radius: 8px;
+    padding: 20px 24px;
+    transition: all 0.25s;
+    cursor: default;
+  }
+  .callout:hover { border-color: rgba(82,41,211,0.1); }
+  .callout h5 { font-size: 13px; font-weight: 500; margin-bottom: 6px; color: #0F0F0F; }
+  .callout p { font-size: 12px; color: #737373; line-height: 1.7; font-weight: 300; }
+  .callout.highlight { background: rgba(82,41,211,0.04); border-color: rgba(82,41,211,0.08); }
+  .callout.highlight:hover { border-color: rgba(82,41,211,0.18); }
+
+  /* ─── TWO-COL ─── */
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 16px; }
+
+  /* ─── SCALE CARDS ─── */
+  .scale-card {
+    background: #ffffff;
+    border: 1px solid rgba(0,0,0,0.05);
+    border-radius: 8px;
+    padding: 24px;
+    transition: all 0.25s;
+    cursor: default;
+  }
+  .scale-card:hover { border-color: rgba(82,41,211,0.12); transform: translateY(-1px); }
+  .scale-card .tag { font-size: 10px; font-weight: 400; letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 8px; }
+  .scale-card h4 { font-size: 16px; font-weight: 500; margin-bottom: 6px; color: #0F0F0F; }
+  .scale-card p { font-size: 12px; color: #737373; line-height: 1.7; margin-bottom: 14px; font-weight: 300; }
+  .scale-inset {
+    background: #F4F4F0; border-radius: 6px;
+    padding: 12px 14px; border: 1px solid rgba(0,0,0,0.03);
+  }
+  .scale-inset h6 { font-size: 12px; font-weight: 500; margin-bottom: 3px; }
+  .scale-inset p { font-size: 11px; color: #737373; line-height: 1.6; margin-bottom: 0; }
+
+  .arc-bar {
+    background: #0F0F0F; border-radius: 8px;
+    padding: 20px 24px; color: #F4F4F0;
+    position: relative; overflow: hidden;
+    transition: all 0.25s; cursor: default;
+  }
+  .arc-bar:hover { box-shadow: 0 8px 30px rgba(82,41,211,0.15); }
+  .arc-bar::before {
+    content: ''; position: absolute;
+    top: -50%; right: -10%; width: 50%; height: 200%;
+    background: radial-gradient(ellipse at center, rgba(82,41,211,0.3) 0%, transparent 60%);
+    filter: blur(40px);
+  }
+  .arc-bar h5 { font-size: 13px; font-weight: 500; margin-bottom: 5px; position: relative; z-index: 1; }
+  .arc-bar p { font-size: 12px; color: rgba(244,244,240,0.55); line-height: 1.7; font-weight: 300; position: relative; z-index: 1; }
+
+  /* ─── CTA SLIDE ─── */
+  .cta-center { text-align: center; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: calc(100vh - 120px); }
+  .cta-center .sec-heading { max-width: 600px; }
+  .cta-center .sec-sub { max-width: 600px; text-align: center; margin-left: auto; margin-right: auto; }
+  .gradient-line {
+    height: 2px; width: 180px;
+    background: linear-gradient(90deg, #E6A47A 0%, #C4A3D9 50%, #5229D3 100%);
+    border-radius: 1px; margin: 16px auto 0;
+  }
+  .cta-footer {
+    position: absolute;
+    bottom: 40px;
+    left: 0; right: 0;
+    text-align: center;
+    font-size: 11px;
+    color: rgba(244,244,240,0.2);
+    font-weight: 300;
+  }
+
+  /* ─── ACCORDION ─── */
+  .bento-item.expandable { cursor: pointer; position: relative; }
+  .bento-item.expandable::after {
+    content: '+';
+    position: absolute;
+    top: 14px; right: 16px;
+    font-size: 14px;
+    color: #9E7CB9;
+    font-weight: 300;
+    transition: transform 0.25s;
+  }
+  .bento-item.expandable.open::after { transform: rotate(45deg); }
+  .bento-expand {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.35s cubic-bezier(0.16, 1, 0.3, 1), margin 0.35s;
+    margin-top: 0;
+  }
+  .bento-item.expandable.open .bento-expand {
+    max-height: 400px;
+    margin-top: 12px;
+  }
+  .bento-expand-inner {
+    padding-top: 10px;
+    border-top: 1px solid rgba(0,0,0,0.05);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 8px;
+  }
+  .proj-chip {
+    font-size: 10px;
+    font-weight: 400;
+    color: #737373;
+    background: rgba(0,0,0,0.03);
+    padding: 3px 8px;
+    border-radius: 4px;
+    white-space: nowrap;
+    line-height: 1.5;
+  }
+  .bento-item.accent .bento-expand-inner { border-top-color: rgba(82,41,211,0.08); }
+  .bento-item.accent .proj-chip { background: rgba(82,41,211,0.06); color: #5229D3; }
+
+  /* ─── ANIMATIONS ─── */
+  .slide.active .anim-in {
+    animation: fadeUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  }
+  .anim-in { opacity: 0; transform: translateY(16px); }
+  .anim-d1 { animation-delay: 0.1s !important; }
+  .anim-d2 { animation-delay: 0.2s !important; }
+  .anim-d3 { animation-delay: 0.3s !important; }
+  .anim-d4 { animation-delay: 0.35s !important; }
+
+  @keyframes fadeUp {
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* ─── RESPONSIVE ─── */
+  @media (max-width: 900px) {
+    .slide-inner { padding: 60px 28px; }
+    .hero-title { font-size: 36px; }
+    .sec-heading { font-size: 24px; }
+    .bento, .roles-grid, .controls-row, .integration-flow { grid-template-columns: 1fr; }
+    .result-strip { grid-template-columns: repeat(2, 1fr); }
+    .two-col { grid-template-columns: 1fr; }
+    .topbar-nav { display: none; }
+    .int-join { padding: 8px 0; }
+  }
+</style>
+</head>
+<body>
+
+<!-- TOP BAR -->
+<div class="topbar">
+  <div class="topbar-brand">periphery</div>
+  <ul class="topbar-nav" id="topNav"></ul>
+  <div class="topbar-counter" id="counter">1 / 9</div>
+</div>
+
+<!-- NAV ARROWS -->
+<button class="nav-arrow left" id="prevBtn" onclick="prev()">&#8592;</button>
+<button class="nav-arrow right" id="nextBtn" onclick="next()">&#8594;</button>
+
+<!-- PROGRESS BAR -->
+<div class="progress-bar" id="progressBar"></div>
+
+<!-- DOT INDICATORS -->
+<div class="dots" id="dots"></div>
+
+<!-- SLIDE DECK -->
+<div class="deck" id="deck">
+
+  <!-- SLIDE 0: HERO -->
+  <div class="slide slide-hero active" data-label="Overview">
+    <div class="slide-inner">
+      <div class="hero-eyebrow anim-in">Integration Overview</div>
+      <div class="hero-title anim-in anim-d1">Periphery Digital <span class="arrow">&rarr;</span> Rennie</div>
+      <p class="hero-sub anim-in anim-d2">A digital marketing capability that walks in with revenue, team, and infrastructure — ready to operate on day one.</p>
+      <p class="hero-meta anim-in anim-d3">Prepared for Greg Zayadi &middot; February 2026</p>
+    </div>
+    <div class="hero-hint">
+      <span class="kbd">&larr;</span> <span class="kbd">&rarr;</span> to navigate
+    </div>
+  </div>
+
+  <!-- SLIDE 1: REVENUE -->
+  <div class="slide slide-light" data-label="Revenue">
+    <div class="slide-inner">
+      <div class="sec-label anim-in">01</div>
+      <div class="sec-heading anim-in anim-d1">$1.04M in projected operating fees</div>
+      <p class="sec-sub anim-in anim-d2">Based on Periphery's FY2025 actuals, the blended fee rate across all Rennie projects was 27.5% of managed ad spend. Revenue here is <strong style="font-weight:500;color:#0F0F0F;">fee income only</strong> — not total billings. Click any card to see the projects.</p>
+      <div class="bento anim-in anim-d2">
+        <div class="bento-item expandable" onclick="this.classList.toggle('open')">
+          <div class="bento-tag">Current Portfolio</div>
+          <div class="bento-val">$356K</div>
+          <div class="bento-detail">11 active projects already generating fees</div>
+          <div class="bento-expand"><div class="bento-expand-inner">
+            <span class="proj-chip">Archetype</span>
+            <span class="proj-chip">Arte</span>
+            <span class="proj-chip">Brentwood Block</span>
+            <span class="proj-chip">Century City Holland Park</span>
+            <span class="proj-chip">Edgemont Collection</span>
+            <span class="proj-chip">Kovo</span>
+            <span class="proj-chip">Kwasen Village</span>
+            <span class="proj-chip">Pier West</span>
+            <span class="proj-chip">Senakw</span>
+            <span class="proj-chip">Signal</span>
+            <span class="proj-chip">Uptown West</span>
+          </div></div>
+        </div>
+        <div class="bento-item expandable" onclick="this.classList.toggle('open')">
+          <div class="bento-tag">New / Incoming</div>
+          <div class="bento-val">$165K</div>
+          <div class="bento-detail">3 projects in onboarding or signed</div>
+          <div class="bento-expand"><div class="bento-expand-inner">
+            <span class="proj-chip">Burke by Wesbild</span>
+            <span class="proj-chip">The New Village</span>
+            <span class="proj-chip">Gardena</span>
+          </div></div>
+        </div>
+        <div class="bento-item accent expandable" onclick="this.classList.toggle('open')">
+          <div class="bento-tag">Takeover Potential</div>
+          <div class="bento-val">$521K</div>
+          <div class="bento-detail">17 Rennie projects at 80% adoption — currently with other agencies or unassigned</div>
+          <div class="bento-expand"><div class="bento-expand-inner">
+            <span class="proj-chip">618 Carnarvon</span>
+            <span class="proj-chip">Avenue</span>
+            <span class="proj-chip">Boardwalk</span>
+            <span class="proj-chip">Raphael</span>
+            <span class="proj-chip">Silva</span>
+            <span class="proj-chip">Disney Cotino</span>
+            <span class="proj-chip">1818 Alberni</span>
+            <span class="proj-chip">Andia</span>
+            <span class="proj-chip">Ash 28</span>
+            <span class="proj-chip">Park at Royal Bay</span>
+            <span class="proj-chip">The Clifton</span>
+            <span class="proj-chip">Woodland Block</span>
+            <span class="proj-chip">Rove</span>
+            <span class="proj-chip">Harriswood</span>
+            <span class="proj-chip">Nido</span>
+            <span class="proj-chip">Portico</span>
+            <span class="proj-chip">Predator Ridge</span>
+          </div></div>
+        </div>
+      </div>
+      <div class="bento anim-in anim-d3" style="margin-top:12px;">
+        <div class="bento-item span-full">
+          <div class="bento-tag">Combined Annual Operating Revenue</div>
+          <div class="bento-val">$1,042,054</div>
+          <div class="bento-detail">Fee income at 27.5% blended rate (from 2025 actuals) · 80% takeover adoption · monthly budgets annualized</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SLIDE 2: TEAM -->
+  <div class="slide slide-dark" data-label="Team">
+    <div class="slide-inner">
+      <div class="sec-label anim-in">02</div>
+      <div class="sec-heading anim-in anim-d1">21 people, rated by transfer readiness</div>
+      <p class="sec-sub anim-in anim-d2">Every team member has been assessed on willingness and fit for integration. A-rated core team is committed and ready.</p>
+      <div class="anim-in anim-d2">
+        <div class="team-card">
+          <div class="team-badge badge-a">A</div>
+          <div class="team-body">
+            <h4>Core Team</h4>
+            <p>Committed to transfer — leadership, senior PMs, digital specialists, designers</p>
+          </div>
+          <div class="team-nums">
+            <div><div class="num">12</div><div class="lbl">People</div></div>
+            <div><div class="num">$827K</div><div class="lbl">Total Comp</div></div>
+          </div>
+        </div>
+        <div class="team-card">
+          <div class="team-badge badge-b">B</div>
+          <div class="team-body">
+            <h4>Flexible Team</h4>
+            <p>Likely to transfer with the right offer — AMs, coordinators, specialists</p>
+          </div>
+          <div class="team-nums">
+            <div><div class="num">4</div><div class="lbl">People</div></div>
+            <div><div class="num">$195K</div><div class="lbl">Total Comp</div></div>
+          </div>
+        </div>
+        <div class="team-card">
+          <div class="team-badge badge-bc">B/C</div>
+          <div class="team-body">
+            <h4>Unlikely / Won't Transfer</h4>
+            <p>Personal circumstances, location, or fit challenges — budget for attrition</p>
+          </div>
+          <div class="team-nums">
+            <div><div class="num">5</div><div class="lbl">People</div></div>
+            <div><div class="num">$351K</div><div class="lbl">Total Comp</div></div>
+          </div>
+        </div>
+      </div>
+      <div class="anim-in anim-d3" style="margin-top:16px; background:rgba(244,244,240,0.04); border:1px solid rgba(244,244,240,0.06); border-radius:8px; padding:16px 20px; display:flex; align-items:flex-start; gap:12px;">
+        <span style="font-size:14px; flex-shrink:0; margin-top:1px;">&#9670;</span>
+        <div>
+          <span style="font-size:12px; font-weight:500; color:#F4F4F0;">Current incentive structure:</span>
+          <span style="font-size:12px; font-weight:300; color:rgba(244,244,240,0.5);"> 5% rock bonuses and additional performance incentives are already part of team compensation. These are not broken out separately in the P&L — they're included in the base comp figures above.</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SLIDE 3: STRATEGIC INVESTMENT -->
+  <div class="slide slide-light" data-label="Investment">
+    <div class="slide-inner">
+      <div class="sec-label anim-in">03</div>
+      <div class="sec-heading anim-in anim-d1">Three hires to unlock AI-native scale</div>
+      <p class="sec-sub anim-in anim-d2">To operate at the level we're projecting — mass-managing campaigns, automating lifecycle marketing, CRO, and AI-driven optimization — we need three leadership hires. These are workflow architects, not traditional managers.</p>
+      <div class="roles-grid anim-in anim-d2">
+        <div class="role-card">
+          <div class="role-dot" style="background:#5229D3;"></div>
+          <h4>Head of Digital</h4>
+          <p>AI-native campaign ops — builds systems to manage, optimize, and report across 30+ campaigns at scale.</p>
+          <div class="rate-row">
+            <div class="rate-pill"><div class="rate-lbl">Local</div><div class="rate-val">$120–140K</div></div>
+            <div class="rate-pill"><div class="rate-lbl">International</div><div class="rate-val">$70–100K</div><div class="rate-sub">higher calibre talent pool</div></div>
+          </div>
+        </div>
+        <div class="role-card">
+          <div class="role-dot" style="background:#9E7CB9;"></div>
+          <h4>Head of Design</h4>
+          <p>AI-native creative production — generative tools at 3-5x volume. Directs strategy while AI handles iteration.</p>
+          <div class="rate-row">
+            <div class="rate-pill"><div class="rate-lbl">Local</div><div class="rate-val">$100–120K</div></div>
+            <div class="rate-pill"><div class="rate-lbl">International</div><div class="rate-val">$70–100K</div><div class="rate-sub">higher calibre talent pool</div></div>
+          </div>
+        </div>
+        <div class="role-card">
+          <div class="role-dot" style="background:#E6A47A;"></div>
+          <h4>Head of CRO & Lifecycle</h4>
+          <p>AI-native email/SMS automation, website CRO, and analytics reviews. Owns the conversion layer end-to-end.</p>
+          <div class="rate-row">
+            <div class="rate-pill"><div class="rate-lbl">Local</div><div class="rate-val">$100–120K</div></div>
+            <div class="rate-pill"><div class="rate-lbl">International</div><div class="rate-val">$70–100K</div><div class="rate-sub">higher calibre talent pool</div></div>
+          </div>
+        </div>
+      </div>
+      <div class="roles-summary anim-in anim-d3">
+        <div>
+          <span class="val" id="hiresTotal">Combined investment: $350K/year</span> <span style="font-size:12px;color:#737373;font-weight:300;">(local) · $255K/year (international)</span>
+        </div>
+        <div class="note">These roles require candidates who already think in AI-first workflows. International hires open access to a deeper, higher-calibre talent pool at significantly lower cost.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SLIDE 4: ECONOMICS -->
+  <div class="slide slide-white" data-label="Economics">
+    <div class="slide-inner" style="padding-top:70px;">
+      <div class="sec-label anim-in">04</div>
+      <div class="sec-heading anim-in anim-d1">Scenario modeler</div>
+      <p class="sec-sub anim-in anim-d1" style="margin-bottom:24px;">Toggle assumptions to see how the economics shift. This mirrors the detailed Excel model.</p>
+      <div class="controls-row anim-in anim-d2">
+        <div>
+          <div class="ctrl-label">Fee Rate</div>
+          <select class="ctrl-select" id="feeRate">
+            <option value="0.20">20%</option><option value="0.225">22.5%</option><option value="0.25">25%</option>
+            <option value="0.275" selected>27.5%</option><option value="0.30">30%</option>
+            <option value="0.325">32.5%</option><option value="0.35">35%</option>
+          </select>
+        </div>
+        <div>
+          <div class="ctrl-label">Takeover Adoption</div>
+          <select class="ctrl-select" id="adoption">
+            <option value="0.50">50%</option><option value="0.60">60%</option><option value="0.70">70%</option>
+            <option value="0.80" selected>80%</option><option value="0.90">90%</option><option value="1.00">100%</option>
+          </select>
+        </div>
+        <div>
+          <div class="ctrl-label">Team Scenario</div>
+          <select class="ctrl-select" id="teamScenario">
+            <option value="acore">A-Core (12)</option><option value="ab" selected>A + B (16)</option><option value="all">Full (21)</option>
+          </select>
+        </div>
+        <div>
+          <div class="ctrl-label">Attrition Rate</div>
+          <select class="ctrl-select" id="attrition">
+            <option value="0.00">0%</option><option value="0.10">10%</option><option value="0.15">15%</option>
+            <option value="0.20" selected>20%</option><option value="0.25">25%</option><option value="0.30">30%</option>
+            <option value="0.40">40%</option><option value="0.50">50%</option>
+          </select>
+        </div>
+        <div>
+          <div class="ctrl-label">Hire Market</div>
+          <select class="ctrl-select" id="hireMarket">
+            <option value="local" selected>Local ($350K)</option><option value="international">Intl ($255K)</option>
+          </select>
+        </div>
+      </div>
+      <div class="result-strip anim-in anim-d3" id="resultStrip"></div>
+      <div class="anim-in anim-d4">
+        <div class="pnl-card" id="pnlCard"></div>
+        <div style="margin-top:10px; padding:12px 16px; background:rgba(82,41,211,0.04); border:1px solid rgba(82,41,211,0.08); border-radius:6px; display:flex; align-items:flex-start; gap:10px;">
+          <span style="color:#9E7CB9; font-size:12px; flex-shrink:0; margin-top:1px;">&#9670;</span>
+          <span style="font-size:11px; font-weight:300; color:#737373; line-height:1.6;"><strong style="font-weight:500; color:#0F0F0F;">Note:</strong> Personnel figures include existing 5% rock bonuses and performance incentives. These are baked into base comp — not modeled as a separate line item.</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SLIDE 5: INTEGRATION -->
+  <div class="slide slide-light" data-label="Integration">
+    <div class="slide-inner">
+      <div class="sec-label anim-in">05</div>
+      <div class="sec-heading anim-in anim-d1">A shared data layer that connects advertising to sales</div>
+      <p class="sec-sub anim-in anim-d2" style="max-width:700px;">We're building an advertising data warehouse. Combined with Rennie's CRM integration work, this creates a full-funnel view from ad impression to closed sale.</p>
+      <div class="integration-flow anim-in anim-d2">
+        <div class="int-card">
+          <h5>Periphery Brings</h5>
+          <h3>Advertising Data Warehouse</h3>
+          <ul>
+            <li>Campaign performance across Meta, Google, LinkedIn</li>
+            <li>Spend allocation and ROAS tracking</li>
+            <li>Lead source attribution by channel</li>
+            <li>Creative performance analytics</li>
+            <li>AI-driven optimization signals</li>
+          </ul>
+        </div>
+        <div class="int-join">+</div>
+        <div class="int-card">
+          <h5>Rennie Brings</h5>
+          <h3>CRM & Sales Intelligence</h3>
+          <ul>
+            <li>Salesforce data pipeline (already in progress)</li>
+            <li>Internal CRM built with AI tooling</li>
+            <li>Buyer journey and sales qualification data</li>
+            <li>Property-level conversion tracking</li>
+            <li>VP of IT (Darryl) leading integration</li>
+          </ul>
+        </div>
+        <div class="int-join">=</div>
+        <div class="int-card result">
+          <h5>Together</h5>
+          <h3>Full-Funnel Attribution</h3>
+          <ul>
+            <li>Ad spend &rarr; lead &rarr; qualified buyer &rarr; sale</li>
+            <li>True cost-per-sale by campaign and channel</li>
+            <li>Real-time marketing ROI for every project</li>
+            <li>Predictive budget allocation</li>
+            <li>Competitive advantage no agency can offer</li>
+          </ul>
+        </div>
+      </div>
+      <div class="callout anim-in anim-d3">
+        <h5>Why this is a natural fit</h5>
+        <p>Rennie is already pulling Salesforce data into an internal CRM tool — building the pipeline from the sales side. We're building the equivalent from the advertising side. These two data layers connect at the lead. Integrating them gives Rennie something most real estate marketing operations don't have: the ability to trace a dollar of ad spend all the way to a closed sale, project by project.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- SLIDE 6: SCALING -->
+  <div class="slide slide-light" data-label="Scaling">
+    <div class="slide-inner">
+      <div class="sec-label anim-in">06</div>
+      <div class="sec-heading anim-in anim-d1">Invest now, consolidate later</div>
+      <p class="sec-sub anim-in anim-d2" style="max-width:700px;">The three Head-of roles are integration accelerators. Once embedded, they create opportunities to streamline redundant capacity. Rennie's expansion plans add a growth multiplier.</p>
+      <div class="two-col anim-in anim-d2">
+        <div class="scale-card">
+          <div class="tag" style="color:#5229D3;">Phase 2 Efficiency</div>
+          <h4>Team Consolidation Opportunity</h4>
+          <p>As Head-of roles integrate across both organizations, overlapping roles become candidates for consolidation. Functions that exist separately in both Rennie and Periphery can be unified under these leaders.</p>
+          <div class="scale-inset">
+            <h6 style="color:#5229D3;">The net effect</h6>
+            <p>The same three hires that add cost today become the mechanism for reducing it tomorrow — either by absorbing responsibilities or by making roles unnecessary through AI-native workflows.</p>
+          </div>
+        </div>
+        <div class="scale-card">
+          <div class="tag" style="color:#E6A47A;">Growth Driver</div>
+          <h4>US Market Expansion</h4>
+          <p>Rennie has plans to expand into the US with new projects. Each new market entry brings incremental ad spend — and with the team already in place, marginal cost of servicing US campaigns is significantly lower.</p>
+          <div class="scale-inset">
+            <h6 style="color:#E6A47A;">Why this matters for headcount</h6>
+            <p>US expansion creates a dual justification: keep the existing team (needed for volume) and invest in new hires (they architect systems that make scaling efficient instead of linear).</p>
+          </div>
+        </div>
+      </div>
+      <div class="arc-bar anim-in anim-d3">
+        <h5>The investment arc</h5>
+        <p>Year 1 is a net investment. By Year 2, integration is deep enough that redundant roles can be adjusted. By Year 3, US expansion revenue is flowing through a team and tech stack built to scale.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- SLIDE 7: UPSIDE -->
+  <div class="slide slide-dark" data-label="Upside">
+    <div class="slide-inner">
+      <div class="sec-label anim-in">07</div>
+      <div class="sec-heading anim-in anim-d1">Retained Periphery clients</div>
+      <p class="sec-sub anim-in anim-d2" style="max-width:700px;">There's a scenario the model doesn't yet account for: some existing Periphery clients may choose to stay on with the team post-integration. This is incremental revenue at zero additional headcount.</p>
+      <div class="two-col anim-in anim-d3">
+        <div class="callout" style="background:rgba(244,244,240,0.04);border-color:rgba(244,244,240,0.06);">
+          <h5 style="color:#F4F4F0;">What this means</h5>
+          <p style="color:rgba(244,244,240,0.5);">Clients who have relationships with the team — not with Periphery the brand — may opt to continue. These projects would transfer seamlessly, adding fee revenue without requiring new capacity.</p>
+        </div>
+        <div class="callout" style="background:rgba(82,41,211,0.08);border-color:rgba(82,41,211,0.15);">
+          <h5 style="color:#F4F4F0;">Why it matters for the economics</h5>
+          <p style="color:rgba(244,244,240,0.5);">Every retained client dollar goes straight to the top line with no corresponding personnel increase. This could meaningfully close the operating gap — and it's upside not baked into any scenario above.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SLIDE 8: NEXT STEP -->
+  <div class="slide slide-dark" data-label="Next Step">
+    <div class="slide-inner cta-center">
+      <div class="sec-label anim-in">08</div>
+      <div class="sec-heading anim-in anim-d1" style="color:#F4F4F0;">Let's walk through the detail together</div>
+      <p class="sec-sub anim-in anim-d2" style="text-align:center;margin-left:auto;margin-right:auto;">The full model is in the Excel workbook with project-level revenue breakdowns, individual personnel detail, and vendor-level SG&A. Every number in this overview links back to that model — let's open it up and pressure-test the assumptions together.</p>
+      <div class="gradient-line anim-in anim-d3"></div>
+      <div class="cta-footer">periphery &middot; Confidential &middot; February 2026</div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// === SLIDE NAVIGATION ===
+const slides = document.querySelectorAll('.slide');
+const totalSlides = slides.length;
+let current = 0;
+let isAnimating = false;
+
+const labels = Array.from(slides).map(s => s.dataset.label);
+
+// Build nav buttons
+const topNav = document.getElementById('topNav');
+labels.forEach((label, i) => {
+  const btn = document.createElement('button');
+  btn.textContent = label;
+  btn.addEventListener('click', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    goTo(i);
+  });
+  topNav.appendChild(btn);
+});
+
+// Build dots
+const dotsContainer = document.getElementById('dots');
+for (let i = 0; i < totalSlides; i++) {
+  const dot = document.createElement('div');
+  dot.className = 'dot';
+  dot.addEventListener('click', () => goTo(i));
+  dotsContainer.appendChild(dot);
+}
+
+// Position all non-active slides offscreen initially
+function initSlides() {
+  slides.forEach((s, i) => {
+    s.classList.remove('active', 'exit-left', 'exit-right', 'queue-left', 'queue-right');
+    if (i === current) {
+      s.classList.add('active');
+    } else if (i > current) {
+      s.classList.add('queue-right');
+    } else {
+      s.classList.add('queue-left');
+    }
+  });
+}
+
+function updateChrome() {
+  // Nav buttons
+  topNav.querySelectorAll('button').forEach((btn, i) => {
+    btn.classList.toggle('active', i === current);
+  });
+
+  // Dots
+  dotsContainer.querySelectorAll('.dot').forEach((dot, i) => {
+    dot.classList.toggle('active', i === current);
+  });
+
+  // Counter
+  document.getElementById('counter').textContent = `${current + 1} / ${totalSlides}`;
+
+  // Progress bar
+  document.getElementById('progressBar').style.width = `${((current + 1) / totalSlides) * 100}%`;
+
+  // Arrow states
+  document.getElementById('prevBtn').disabled = current === 0;
+  document.getElementById('nextBtn').disabled = current === totalSlides - 1;
+}
+
+function goTo(index) {
+  if (index < 0 || index >= totalSlides || index === current || isAnimating) return;
+  isAnimating = true;
+
+  const goingForward = index > current;
+  const oldSlide = slides[current];
+  const newSlide = slides[index];
+
+  // 1. Position the new slide offscreen (no transition so it snaps)
+  newSlide.style.transition = 'none';
+  newSlide.classList.remove('active', 'exit-left', 'exit-right', 'queue-left', 'queue-right');
+  newSlide.classList.add(goingForward ? 'queue-right' : 'queue-left');
+  newSlide.offsetHeight; // force reflow
+
+  // 2. Re-enable transition and animate both
+  newSlide.style.transition = '';
+  requestAnimationFrame(() => {
+    // Exit old slide
+    oldSlide.classList.remove('active');
+    oldSlide.classList.add(goingForward ? 'exit-left' : 'exit-right');
+
+    // Enter new slide
+    newSlide.classList.remove('queue-right', 'queue-left');
+    newSlide.classList.add('active');
+
+    // Re-trigger entrance animations on new slide
+    newSlide.querySelectorAll('.anim-in').forEach(el => {
+      el.style.animation = 'none';
+      el.offsetHeight;
+      el.style.animation = '';
+    });
+
+    current = index;
+    updateChrome();
+
+    // After transition ends, clean up
+    setTimeout(() => {
+      slides.forEach((s, i) => {
+        if (i !== current) {
+          s.classList.remove('active', 'exit-left', 'exit-right');
+          if (i > current) {
+            s.classList.add('queue-right');
+          } else {
+            s.classList.add('queue-left');
+          }
+        }
+      });
+      isAnimating = false;
+    }, 500);
+  });
+}
+
+function next() { goTo(current + 1); }
+function prev() { goTo(current - 1); }
+
+// Keyboard navigation
+document.addEventListener('keydown', (e) => {
+  if (e.target.tagName === 'SELECT') return; // don't interfere with dropdowns
+  if (e.key === 'ArrowRight' || e.key === ' ') { e.preventDefault(); next(); }
+  if (e.key === 'ArrowLeft') { e.preventDefault(); prev(); }
+  if (e.key === 'Home') { e.preventDefault(); goTo(0); }
+  if (e.key === 'End') { e.preventDefault(); goTo(totalSlides - 1); }
+});
+
+// Touch support
+let touchStartX = 0;
+document.addEventListener('touchstart', e => { touchStartX = e.touches[0].clientX; });
+document.addEventListener('touchend', e => {
+  const diff = touchStartX - e.changedTouches[0].clientX;
+  if (Math.abs(diff) > 60) { diff > 0 ? next() : prev(); }
+});
+
+// Initialize
+initSlides();
+updateChrome();
+
+// === SCENARIO MODELER (same logic) ===
+const ACTIVE_SPEND = 1293287;
+const INCOMING_SPEND = 600000;
+const TAKEOVER_SPEND = 2370000;
+
+const PERSONNEL = {
+  acore: { base: 826965, headcount: 12 },
+  ab:    { base: 1022350, headcount: 16 },
+  all:   { base: 1373100, headcount: 21 }
+};
+
+const SGA = 73989;
+const HIRE_RATES = {
+  local: { digital: 130000, design: 110000, cro: 110000 },
+  international: { digital: 85000, design: 85000, cro: 85000 }
+};
+
+function fmtFull(n) {
+  return (n < 0 ? '-' : '') + '$' + Math.abs(Math.round(n)).toLocaleString();
+}
+function pct(n) { return (n * 100).toFixed(1) + '%'; }
+
+function calculate() {
+  const feeRate = parseFloat(document.getElementById('feeRate').value);
+  const adoption = parseFloat(document.getElementById('adoption').value);
+  const scenario = document.getElementById('teamScenario').value;
+  const attrition = parseFloat(document.getElementById('attrition').value);
+  const hireMarket = document.getElementById('hireMarket').value;
+
+  const activeFees = ACTIVE_SPEND * feeRate;
+  const incomingFees = INCOMING_SPEND * feeRate;
+  const takeoverFees = TAKEOVER_SPEND * feeRate * adoption;
+  const totalRevenue = activeFees + incomingFees + takeoverFees;
+
+  const rates = HIRE_RATES[hireMarket];
+  const strategicHires = rates.digital + rates.design + rates.cro;
+
+  const personnelPre = PERSONNEL[scenario].base;
+  const teamPost = personnelPre * (1 - attrition);
+  const personnelPost = teamPost + strategicHires;
+  const headcountPre = PERSONNEL[scenario].headcount;
+  const headcountPost = Math.round(headcountPre * (1 - attrition)) + 3;
+
+  const grossProfit = totalRevenue - personnelPost;
+  const operatingIncome = grossProfit - SGA;
+  const margin = totalRevenue > 0 ? operatingIncome / totalRevenue : 0;
+  const revPerHead = headcountPost > 0 ? totalRevenue / headcountPost : 0;
+  const gpMargin = totalRevenue > 0 ? grossProfit / totalRevenue : 0;
+
+  const marginClass = margin > 0.10 ? 'green' : margin > 0 ? 'amber' : 'red';
+  const oiClass = operatingIncome > 0 ? 'green' : 'red';
+
+  document.getElementById('resultStrip').innerHTML = `
+    <div class="result-card blue"><div class="result-val">${fmtFull(totalRevenue)}</div><div class="result-label">Total Revenue</div></div>
+    <div class="result-card ${oiClass}"><div class="result-val">${fmtFull(operatingIncome)}</div><div class="result-label">Operating Income</div></div>
+    <div class="result-card ${marginClass}"><div class="result-val">${pct(margin)}</div><div class="result-label">Operating Margin</div></div>
+    <div class="result-card blue"><div class="result-val">${headcountPost}</div><div class="result-label">Headcount</div></div>
+  `;
+
+  document.getElementById('pnlCard').innerHTML = `
+    <div style="font-size:9px;font-weight:400;color:#9E7CB9;text-transform:uppercase;letter-spacing:1.5px;margin-bottom:14px;">Operating P&L Summary</div>
+    <div class="pnl-row"><span class="pnl-label">Current Active Projects (11)</span><span class="pnl-value">${fmtFull(activeFees)}</span></div>
+    <div class="pnl-row"><span class="pnl-label">New / Incoming Projects (3)</span><span class="pnl-value">${fmtFull(incomingFees)}</span></div>
+    <div class="pnl-row"><span class="pnl-label">Takeover Projects (at ${pct(adoption)} adoption)</span><span class="pnl-value">${fmtFull(takeoverFees)}</span></div>
+    <div class="pnl-row total"><span class="pnl-label">Total Operating Revenue</span><span class="pnl-value">${fmtFull(totalRevenue)}</span></div>
+    <div style="height:14px;"></div>
+    <div class="pnl-row"><span class="pnl-label">Existing Team (${headcountPre} × ${pct(1-attrition)} retention)</span><span class="pnl-value">(${fmtFull(teamPost)})</span></div>
+    <div class="pnl-row"><span class="pnl-label">Strategic Hires — 3 roles (${hireMarket})</span><span class="pnl-value">(${fmtFull(strategicHires)})</span></div>
+    <div class="pnl-row" style="border-bottom:none;"><span class="pnl-label" style="font-size:11px;color:#737373;">Total personnel: ${fmtFull(personnelPost)} · ${headcountPost} people</span><span></span></div>
+    <div class="pnl-row total"><span class="pnl-label">Gross Profit</span><span class="pnl-value ${grossProfit >= 0 ? 'positive' : 'negative'}">${fmtFull(grossProfit)} <span style="font-size:11px;font-weight:400;color:#737373;">${pct(gpMargin)}</span></span></div>
+    <div style="height:14px;"></div>
+    <div class="pnl-row"><span class="pnl-label">SG&A — tech & tools</span><span class="pnl-value">(${fmtFull(SGA)})</span></div>
+    <div class="pnl-row total"><span class="pnl-label">Operating Income (EBITDA proxy)</span><span class="pnl-value ${operatingIncome >= 0 ? 'positive' : 'negative'}" style="font-size:20px;">${fmtFull(operatingIncome)}</span></div>
+    <div class="pnl-row" style="border-bottom:none;"><span class="pnl-label" style="font-size:11px;color:#737373;">Rev/employee: ${fmtFull(revPerHead)}</span><span class="pnl-value" style="font-size:11px;color:#737373;">Margin: ${pct(margin)}</span></div>
+  `;
+}
+
+['feeRate','adoption','teamScenario','attrition','hireMarket'].forEach(id => {
+  document.getElementById(id).addEventListener('change', calculate);
+});
+calculate();
+</script>
+</body>
+</html>
